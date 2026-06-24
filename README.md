@@ -2,7 +2,7 @@
 
 A lightweight macOS menu bar app that puts a custom dock on your secondary screen, leaving the native Apple Dock on your primary display.
 
-<!-- screenshot here -->
+![MegaDock dock on a secondary screen](screenshot.png)
 
 ## Why
 
