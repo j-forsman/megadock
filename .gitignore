@@ -1,0 +1,6 @@
+.build/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+MegaDock.app/
+.DS_Store
