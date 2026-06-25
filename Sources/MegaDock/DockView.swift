@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct DockView: View {
     @ObservedObject var state: DockState
     @StateObject private var runningMonitor = RunningAppsMonitor()
+    @StateObject private var badgeMonitor = BadgeMonitor()
     @State private var draggedItem: DockItem? = nil
 
     var body: some View {
@@ -15,6 +16,7 @@ struct DockView: View {
                     DockItemView(
                         item: item,
                         isRunning: runningMonitor.runningBundleIDs.contains(item.bundleID),
+                        badge: badgeMonitor.badges[item.bundleID],
                         onRemove: { removeItem(item) }
                     )
                     .opacity(draggedItem?.id == item.id ? 0.4 : 1.0)
@@ -46,6 +48,7 @@ struct DockView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
             }
             .padding(.bottom, 4)
+            .onAppear { badgeMonitor.start() }
             .onDrop(of: [UTType.plainText], isTargeted: nil) { _ in
                 guard draggedItem != nil else { return false }
                 draggedItem = nil
@@ -115,6 +118,7 @@ struct ReorderDropDelegate: DropDelegate {
 struct DockItemView: View {
     let item: DockItem
     let isRunning: Bool
+    let badge: String?
     let onRemove: () -> Void
     @State private var isHovered = false
     @State private var icon: NSImage? = nil
@@ -136,6 +140,18 @@ struct DockItemView: View {
                 .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
+            .overlay(alignment: .topTrailing) {
+                if let badge {
+                    Text(badge)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.red)
+                        .clipShape(Capsule())
+                        .offset(x: 8, y: -4)
+                }
+            }
             .overlay(alignment: .top) {
                 Text(item.name)
                     .font(.system(size: 11, weight: .medium))
@@ -154,6 +170,21 @@ struct DockItemView: View {
             }
             .contextMenu {
                 Button("Open \(item.name)") { item.launch() }
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
+                }
+                if isRunning {
+                    Divider()
+                    Button("Hide") {
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.hide()
+                    }
+                    Button("Quit \(item.name)") {
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.terminate()
+                    }
+                    Button("Force Quit \(item.name)") {
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.forceTerminate()
+                    }
+                }
                 Divider()
                 Button("Remove from Dock") { onRemove() }
             }

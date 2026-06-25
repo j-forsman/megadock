@@ -38,6 +38,8 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
     <true/>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>MegaDock reads notification badges from the system Dock.</string>
 </dict>
 </plist>
 PLIST
