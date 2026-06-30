@@ -44,4 +44,10 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+echo "→ Signing..."
+# C11: use env var so other machines can override; fall through gracefully if no cert found
+SIGN_IDENTITY="${MEGADOCK_SIGN_IDENTITY:-638F7EE6F39DA65DC438F2B2FE2553872B189974}"
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP" \
+    || echo "  (warning: signing skipped — set MEGADOCK_SIGN_IDENTITY or add to Accessibility manually)"
+
 echo "✓ Done. Run with:  open $APP"
