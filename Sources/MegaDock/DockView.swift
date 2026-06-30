@@ -32,13 +32,19 @@ struct DockView: View {
                     ))
                 }
 
-                Button { addApp() } label: {
+                Menu {
+                    Button("Browse…") { addApp() }
+                    Divider()
+                    Button("Finder") { addItem(bundleID: "com.apple.finder", name: "Finder", path: "/System/Library/CoreServices/Finder.app") }
+                } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .medium))
                         .frame(width: 28, height: 28)
                         .background(.secondary.opacity(0.15), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
                 .help("Add Application")
             }
             .padding(.horizontal, 16)
@@ -51,11 +57,13 @@ struct DockView: View {
             .onAppear {
                 badgeMonitor.start()
             }
-            .onDrop(of: [UTType.plainText], isTargeted: nil) { _ in
-                guard draggedItem != nil else { return false }
-                draggedItem = nil
-                ProfileManager.shared.saveActive(state.profile)
-                return true
+            .onDrop(of: [UTType.plainText, UTType.fileURL], isTargeted: nil) { providers in
+                if draggedItem != nil {
+                    draggedItem = nil
+                    ProfileManager.shared.saveActive(state.profile)
+                    return true
+                }
+                return handleExternalDrop(providers)
             }
         }
     }
@@ -63,6 +71,29 @@ struct DockView: View {
     private func removeItem(_ item: DockItem) {
         state.profile.items.removeAll { $0.id == item.id }
         ProfileManager.shared.saveActive(state.profile)
+    }
+
+    private func addItem(bundleID: String, name: String, path: String) {
+        guard !state.profile.items.contains(where: { $0.bundleID == bundleID }) else { return }
+        state.profile.items.append(DockItem(id: UUID(), bundleID: bundleID, name: name, path: path))
+        ProfileManager.shared.saveActive(state.profile)
+    }
+
+    private func handleExternalDrop(_ providers: [NSItemProvider]) -> Bool {
+        var handled = false
+        for provider in providers where provider.canLoadObject(ofClass: URL.self) {
+            handled = true
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url, url.pathExtension == "app" else { return }
+                DispatchQueue.main.async {
+                    let path = url.path
+                    let name = url.deletingPathExtension().lastPathComponent
+                    let bundleID = Bundle(path: path)?.bundleIdentifier ?? name
+                    addItem(bundleID: bundleID, name: name, path: path)
+                }
+            }
+        }
+        return handled
     }
 
     private func addApp() {
@@ -77,10 +108,7 @@ struct DockView: View {
         let path = url.path
         let name = url.deletingPathExtension().lastPathComponent
         let bundleID = Bundle(path: path)?.bundleIdentifier ?? name
-        guard !state.profile.items.contains(where: { $0.bundleID == bundleID }) else { return }
-
-        state.profile.items.append(DockItem(id: UUID(), bundleID: bundleID, name: name, path: path))
-        ProfileManager.shared.saveActive(state.profile)
+        addItem(bundleID: bundleID, name: name, path: path)
     }
 }
 

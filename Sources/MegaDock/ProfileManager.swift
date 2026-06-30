@@ -77,6 +77,20 @@ final class ProfileManager {
         save(activeProfile(), named: name)
     }
 
+    func renameProfile(from oldName: String, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              profileNames.contains(oldName),
+              !profileNames.contains(trimmed) else { return }
+        try? FileManager.default.moveItem(
+            at: profilesDir.appendingPathComponent("\(oldName).json"),
+            to: profilesDir.appendingPathComponent("\(trimmed).json"))
+        if activeProfileName == oldName {
+            activeProfileName = trimmed
+            try? trimmed.write(to: activeNameFile, atomically: true, encoding: .utf8)
+        }
+    }
+
     func deleteProfile(named name: String) {
         guard name != activeProfileName else { return }
         try? FileManager.default.removeItem(at: profilesDir.appendingPathComponent("\(name).json"))

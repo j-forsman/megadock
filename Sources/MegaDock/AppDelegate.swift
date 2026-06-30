@@ -35,6 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         profilesMenu.addItem(.separator())
         profilesMenu.addItem(withTitle: "New Profile…", action: #selector(newProfile), keyEquivalent: "")
+        profilesMenu.addItem(withTitle: "Rename Profile…", action: #selector(renameActiveProfile), keyEquivalent: "")
         if ProfileManager.shared.profileNames.count > 1 {
             let deleteItem = NSMenuItem(title: "Delete Profile", action: nil, keyEquivalent: "")
             let deleteMenu = NSMenu()
@@ -90,6 +91,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let profile = ProfileManager.shared.activate(profileNamed: name) {
             screenManager?.reloadAll(with: profile)
         }
+        rebuildMenu()
+    }
+
+    @objc private func renameActiveProfile() {
+        let current = ProfileManager.shared.activeProfileName
+        let alert = NSAlert()
+        alert.messageText = "Rename Profile"
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        textField.stringValue = current
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != current, !ProfileManager.shared.profileNames.contains(name) else { return }
+
+        ProfileManager.shared.renameProfile(from: current, to: name)
         rebuildMenu()
     }
 

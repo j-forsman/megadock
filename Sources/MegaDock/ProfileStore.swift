@@ -7,7 +7,17 @@ struct DockItem: Identifiable, Codable {
     let path: String
 
     func launch() {
-        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        let instances = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        guard let app = instances.first else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+            return
+        }
+        if app.isActive {
+            instances.forEach { $0.hide() }
+        } else {
+            app.unhide()
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
     }
 }
 
