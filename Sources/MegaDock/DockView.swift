@@ -46,6 +46,7 @@ struct DockView: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .help("Add Application")
+                .accessibilityLabel("Add Application")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -150,12 +151,13 @@ struct DockItemView: View {
     let isRunning: Bool
     let badge: String?
     let onRemove: () -> Void
+    @AppStorage("iconSize") private var iconSize: Double = 44
     @State private var isHovered = false
     @State private var icon: NSImage? = nil
 
     var body: some View {
         VStack(spacing: 3) {
-            Button { item.launch() } label: {
+            Button { open() } label: {
                 Group {
                     if let icon {
                         Image(nsImage: icon)
@@ -167,9 +169,11 @@ struct DockItemView: View {
                             .aspectRatio(contentMode: .fit)
                     }
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: iconSize, height: iconSize)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(item.name)
+            .accessibilityValue(isRunning ? "Running" : "")
             .overlay(alignment: .topTrailing) {
                 if let badge {
                     Text(badge)
@@ -199,7 +203,7 @@ struct DockItemView: View {
                     .allowsHitTesting(false)
             }
             .contextMenu {
-                Button("Open \(item.name)") { item.launch() }
+                Button("Open \(item.name)") { open() }
                 Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
                 }
@@ -243,5 +247,18 @@ struct DockItemView: View {
             copy.size = NSSize(width: 256, height: 256)
             icon = copy
         }
+    }
+
+    private func open() {
+        guard FileManager.default.fileExists(atPath: item.path) else {
+            let alert = NSAlert()
+            alert.messageText = "“\(item.name)” can’t be found."
+            alert.informativeText = "It may have been moved or uninstalled. Remove it from the dock?"
+            alert.addButton(withTitle: "Remove")
+            alert.addButton(withTitle: "Keep")
+            if alert.runModal() == .alertFirstButtonReturn { onRemove() }
+            return
+        }
+        item.launch()
     }
 }

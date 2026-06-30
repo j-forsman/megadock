@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -51,6 +52,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(profilesItem)
 
         menu.addItem(withTitle: "Sync from Apple Dock", action: #selector(syncFromAppleDock), keyEquivalent: "")
+
+        // Icon size submenu
+        let sizeItem = NSMenuItem(title: "Icon Size", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let current = UserDefaults.standard.object(forKey: "iconSize") as? Double ?? 44
+        for (title, value) in [("Small", 36.0), ("Medium", 44.0), ("Large", 56.0)] {
+            let item = NSMenuItem(title: title, action: #selector(setIconSize(_:)), keyEquivalent: "")
+            item.representedObject = value
+            item.state = value == current ? .on : .off
+            sizeMenu.addItem(item)
+        }
+        sizeItem.submenu = sizeMenu
+        menu.addItem(sizeItem)
+
+        if !AXIsProcessTrusted() {
+            menu.addItem(withTitle: "Enable Notification Badges…", action: #selector(enableBadges), keyEquivalent: "")
+        }
 
         menu.addItem(.separator())
 
@@ -121,7 +139,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func syncFromAppleDock() {
+        let alert = NSAlert()
+        alert.messageText = "Replace “\(ProfileManager.shared.activeProfileName)” with your Apple Dock?"
+        alert.informativeText = "This overwrites the current profile’s apps with the ones in your Apple Dock. This can’t be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Replace")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         screenManager?.syncAllFromAppleDock()
+    }
+
+    @objc private func setIconSize(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? Double else { return }
+        UserDefaults.standard.set(value, forKey: "iconSize")
+        rebuildMenu()
+    }
+
+    @objc private func enableBadges() {
+        AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true] as CFDictionary)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func toggleLaunchAtLogin() {
