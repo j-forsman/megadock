@@ -152,6 +152,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func setIconSize(_ sender: NSMenuItem) {
         guard let value = sender.representedObject as? Double else { return }
         UserDefaults.standard.set(value, forKey: "iconSize")
+        screenManager?.relayoutAll()
         rebuildMenu()
     }
 

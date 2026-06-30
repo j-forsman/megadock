@@ -28,6 +28,13 @@ class ScreenManager {
         }
     }
 
+    func relayoutAll() {
+        for screen in NSScreen.screens {
+            guard let id = screen.displayID, let panel = panels[id] else { continue }
+            panel.updateFrame(for: screen)
+        }
+    }
+
     func syncAllFromAppleDock() {
         let fresh = DockProfile.fromAppleDock
         ProfileManager.shared.saveActive(fresh)
