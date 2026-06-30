@@ -32,9 +32,14 @@ class DockPanel: NSPanel {
         state.profile = profile
     }
 
+    func updateFrame(for screen: NSScreen) {
+        setFrame(DockPanel.frame(for: screen), display: true)
+    }
+
     private static func frame(for screen: NSScreen) -> NSRect {
         let s = screen.frame
-        let height: CGFloat = 110
+        let iconSize = UserDefaults.standard.object(forKey: "iconSize") as? Double ?? 44
+        let height = CGFloat(iconSize) + 66  // matches the original 110 at the default 44pt
         let width: CGFloat = min(s.width * 0.65, 720)
         return NSRect(x: s.midX - width / 2, y: s.minY + 4, width: width, height: height)
     }
