@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 struct DockView: View {
     @ObservedObject var state: DockState
     @StateObject private var runningMonitor = RunningAppsMonitor()
-    @StateObject private var badgeMonitor = BadgeMonitor()
+    @ObservedObject private var badgeMonitor = BadgeMonitor.shared  // C5: shared across all screens
     @State private var draggedItem: DockItem? = nil
 
     var body: some View {
@@ -48,7 +48,9 @@ struct DockView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
             }
             .padding(.bottom, 4)
-            .onAppear { badgeMonitor.start() }
+            .onAppear {
+                badgeMonitor.start()
+            }
             .onDrop(of: [UTType.plainText], isTargeted: nil) { _ in
                 guard draggedItem != nil else { return false }
                 draggedItem = nil
@@ -176,13 +178,25 @@ struct DockItemView: View {
                 if isRunning {
                     Divider()
                     Button("Hide") {
-                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.hide()
+                        // C6: target all instances (same bundle ID, different PIDs)
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID)
+                            .forEach { $0.hide() }
                     }
                     Button("Quit \(item.name)") {
-                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.terminate()
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID)
+                            .forEach { $0.terminate() }
                     }
-                    Button("Force Quit \(item.name)") {
-                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID).first?.forceTerminate()
+                    Button("Force Quit \(item.name)", role: .destructive) {
+                        // C7: confirm before destroying unsaved work
+                        let alert = NSAlert()
+                        alert.messageText = "Force quit \(item.name)?"
+                        alert.informativeText = "Unsaved changes will be lost."
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "Force Quit")
+                        alert.addButton(withTitle: "Cancel")
+                        guard alert.runModal() == .alertFirstButtonReturn else { return }
+                        NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID)
+                            .forEach { $0.forceTerminate() }
                     }
                 }
                 Divider()

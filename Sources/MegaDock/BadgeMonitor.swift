@@ -2,12 +2,16 @@ import AppKit
 import ApplicationServices
 
 final class BadgeMonitor: ObservableObject {
+    static let shared = BadgeMonitor()
     @Published var badges: [String: String] = [:]
     private var timer: Timer?
 
+    private init() {}
+
     func start() {
-        let opts: [NSString: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
-        AXIsProcessTrustedWithOptions(opts as CFDictionary)
+        guard timer == nil else { return }  // C2: prevent double-start / timer leak
+        AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true] as CFDictionary)
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             self?.poll()
         }
@@ -18,19 +22,20 @@ final class BadgeMonitor: ObservableObject {
     deinit { timer?.invalidate() }
 
     private func poll() {
+        // C1/C4: AX API is not thread-safe; run entirely on the main thread.
+        // The scan is fast (< 5ms for a typical Dock) and does not block the UI.
         guard AXIsProcessTrusted(),
-              let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
+              let dock = NSRunningApplication.runningApplications(
+                  withBundleIdentifier: "com.apple.dock").first
         else { return }
 
-        let pid = dock.processIdentifier
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            var found: [String: String] = [:]
-            Self.scan(AXUIElementCreateApplication(pid), into: &found)
-            DispatchQueue.main.async { self?.badges = found }
-        }
+        var found: [String: String] = [:]
+        Self.scan(AXUIElementCreateApplication(dock.processIdentifier), into: &found)
+        if found != badges { badges = found }  // C8/C9: skip assignment when nothing changed
     }
 
-    private static func scan(_ element: AXUIElement, into result: inout [String: String]) {
+    private static func scan(_ element: AXUIElement, into result: inout [String: String], depth: Int = 0) {
+        guard depth < 10 else { return }  // C3: bound recursion against unexpectedly deep AX trees
         var ref: AnyObject?
         guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &ref) == .success,
               let children = ref as? [AXUIElement] else { return }
@@ -51,7 +56,7 @@ final class BadgeMonitor: ObservableObject {
                     result[bundleID] = badge
                 }
             } else {
-                scan(child, into: &result)
+                scan(child, into: &result, depth: depth + 1)
             }
         }
     }
