@@ -11,7 +11,10 @@ class ScreenManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.updatePanels()
+            // ponytail: screen ordering settles ~300ms after the notification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.updatePanels()
+            }
         }
     }
 
