@@ -17,6 +17,25 @@ struct DockItem: Identifiable, Codable {
         } else {
             app.unhide()
             app.activate(options: [.activateIgnoringOtherApps])
+            unminimizeWindows(of: app)
+        }
+    }
+
+    // ponytail: AX API is the only way to restore yellow-button-minimized windows;
+    // unhide()/activate() don't. Needs Accessibility permission, silently no-ops without it.
+    private func unminimizeWindows(of app: NSRunningApplication) {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        guard AXIsProcessTrustedWithOptions(options) else { return }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        var windowsValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsValue) == .success,
+              let windows = windowsValue as? [AXUIElement] else { return }
+        for window in windows {
+            var minimized: CFTypeRef?
+            if AXUIElementCopyAttributeValue(window, kAXMinimizedAttribute as CFString, &minimized) == .success,
+               (minimized as? Bool) == true {
+                AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, false as CFTypeRef)
+            }
         }
     }
 }
