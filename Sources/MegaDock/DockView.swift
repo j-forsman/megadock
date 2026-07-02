@@ -209,6 +209,9 @@ struct DockItemView: View {
                 }
                 if isRunning {
                     Divider()
+                    Button("Show All Windows") {
+                        WindowManager.showAllWindows(bundleID: item.bundleID)
+                    }
                     Button("Hide") {
                         // C6: target all instances (same bundle ID, different PIDs)
                         NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleID)
