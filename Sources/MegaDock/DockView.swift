@@ -209,6 +209,23 @@ struct DockItemView: View {
                 }
                 if isRunning {
                     Divider()
+                    if WindowManager.canReadWindows {
+                        let windows = WindowManager.windows(bundleID: item.bundleID)
+                        if windows.isEmpty {
+                            Text("No Windows")
+                        } else {
+                            ForEach(windows) { window in
+                                Button(window.displayTitle) {
+                                    WindowManager.focusWindow(window)
+                                }
+                            }
+                        }
+                    } else {
+                        Button("Enable Window List…") {
+                            WindowManager.requestAccessibilityIfNeeded()
+                        }
+                    }
+                    Divider()
                     Button("Show All Windows") {
                         WindowManager.showAllWindows(bundleID: item.bundleID)
                     }
