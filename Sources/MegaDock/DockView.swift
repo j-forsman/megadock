@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 import UniformTypeIdentifiers
 
 struct DockView: View {
@@ -66,6 +67,40 @@ struct DockView: View {
                 }
                 return handleExternalDrop(providers)
             }
+        }
+        .contentShape(Rectangle())
+        // Right-click anywhere on the dock background (not on an icon, which has
+        // its own menu) — a way to reach settings when the menu bar icon is hidden.
+        .contextMenu {
+            if !AXIsProcessTrusted() {
+                Button("Enable Notification Badges…") { enableBadges() }
+            }
+            Divider()
+            Button(SMAppService.mainApp.status == .enabled ? "Disable Launch at Login" : "Enable Launch at Login") {
+                toggleLaunchAtLogin()
+            }
+            Divider()
+            Button("Quit MegaDock") { NSApplication.shared.terminate(nil) }
+        }
+    }
+
+    private func enableBadges() {
+        AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true] as CFDictionary)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func toggleLaunchAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSLog("MegaDock: launch at login toggle failed: \(error)")
         }
     }
 
