@@ -32,6 +32,14 @@ class DockPanel: NSPanel {
         state.profile = profile
     }
 
+    private var isHiddenForFullScreen = false
+
+    func setHiddenForFullScreen(_ hidden: Bool) {
+        guard hidden != isHiddenForFullScreen else { return }
+        isHiddenForFullScreen = hidden
+        hidden ? orderOut(nil) : orderFrontRegardless()
+    }
+
     func updateFrame(for screen: NSScreen) {
         setFrame(DockPanel.frame(for: screen), display: true)
     }
