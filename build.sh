@@ -40,6 +40,8 @@ cat > "$APP/Contents/Info.plist" << 'PLIST'
     <string>13.0</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>MegaDock reads Dock badges and manages app windows for dock actions.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>MegaDock asks PowerPoint and Keynote whether a slideshow is running, so it can hide itself while you present.</string>
 </dict>
 </plist>
 PLIST
