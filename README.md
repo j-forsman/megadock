@@ -11,6 +11,7 @@ macOS only shows the Apple Dock on one screen at a time. If you work with an ult
 ## Features
 
 - **Glass pill dock** on all secondary screens — stays above every window, never auto-hides
+- **Hides automatically** while PowerPoint or Keynote is presenting a slideshow
 - **Profiles** — create named app lists and switch between them from the menu bar
 - **Sync from Apple Dock** — one click to mirror your current Apple Dock layout
 - **Drag to reorder** icons within the dock
