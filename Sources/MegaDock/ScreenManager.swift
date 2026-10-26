@@ -4,6 +4,8 @@ class ScreenManager {
     private var panels: [CGDirectDisplayID: DockPanel] = [:]
     private var observer: Any?
     private var presentationCheckTimer: Timer?
+    private var activationObserver: Any?
+    private var resizeObserver: AXObserver?
 
     func start() {
         updatePanels()
@@ -23,11 +25,69 @@ class ScreenManager {
         presentationCheckTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             self?.checkPresentationState()
         }
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            self?.watchResizes(of: app)
+        }
+        if let app = NSWorkspace.shared.frontmostApplication { watchResizes(of: app) }
     }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
         presentationCheckTimer?.invalidate()
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+    }
+
+    // ponytail: macOS has no API for a third-party app to shrink other apps'
+    // visibleFrame like the real Dock does, so we clamp windows after the fact via
+    // Accessibility. Only the frontmost app is watched, and only resizes (zoom,
+    // fill, edge-drag) — plain moves are left alone, same as the Apple Dock.
+    private func watchResizes(of app: NSRunningApplication) {
+        if let old = resizeObserver {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(old), .defaultMode)
+            resizeObserver = nil
+        }
+        guard AXIsProcessTrusted(), app.processIdentifier != getpid() else { return }
+
+        var observer: AXObserver?
+        guard AXObserverCreate(app.processIdentifier, { _, window, _, refcon in
+            guard let refcon else { return }
+            Unmanaged<ScreenManager>.fromOpaque(refcon).takeUnretainedValue().keepClearOfDock(window)
+        }, &observer) == .success, let observer else { return }
+
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        AXObserverAddNotification(observer, AXUIElementCreateApplication(app.processIdentifier),
+                                  kAXWindowResizedNotification as CFString, refcon)
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        resizeObserver = observer
+    }
+
+    private func keepClearOfDock(_ window: AXUIElement) {
+        var posRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        var origin = CGPoint.zero
+        var size = CGSize.zero
+        guard let primaryHeight = NSScreen.screens.first?.frame.height,
+              AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &posRef) == .success,
+              AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+              AXValueGetValue(posRef as! AXValue, .cgPoint, &origin),
+              AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return }
+        let frame = CGRect(origin: origin, size: size)
+
+        for panel in panels.values where panel.isVisible {
+            // AX uses a top-left origin; flip the panel's Cocoa frame to match.
+            var dock = panel.frame
+            dock.origin.y = primaryHeight - dock.maxY
+            guard frame.intersects(dock), frame.minY < dock.minY else { continue }
+            var clamped = CGSize(width: frame.width, height: dock.minY - frame.minY)
+            if let value = AXValueCreate(.cgSize, &clamped) {
+                AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, value)
+            }
+        }
     }
 
     func reloadAll(with profile: DockProfile) {
